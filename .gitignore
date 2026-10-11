@@ -9,3 +9,4 @@ collinfo.json
 .venv/
 .vscode/
 .idea/
+exporter/output/
