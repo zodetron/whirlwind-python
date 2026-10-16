@@ -80,12 +80,13 @@ extract-remote-s3:
 	warcio extract $(EOT_CC_WARC_S3) 18595
 
 export:
-	@echo "exporting record metadata from the local warcs to exporter/output/"
+	@echo "exporting record metadata and page text from the local warcs to exporter/output/"
 	mkdir -p exporter/output
 	python exporter/export_records.py whirlwind.warc.gz -o exporter/output/warc.csv
 	python exporter/export_records.py whirlwind.warc.wet.gz -o exporter/output/wet.csv
 	python exporter/export_records.py whirlwind.warc.wat.gz -o exporter/output/wat.csv
 	python exporter/export_records.py whirlwind.warc.gz -f json -o exporter/output/warc.json
+	python exporter/export_records.py whirlwind.warc.wet.gz -m text -o exporter/output/text.csv
 
 cdx_toolkit:
 	@echo demonstrate that we have this entry in the index

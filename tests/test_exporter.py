@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / 'exporter'))
 
-from export_records import FIELDS, read_records, write_csv, write_json  # noqa: E402
+from export_records import FIELDS, TEXT_FIELDS, read_records, read_text, write_csv, write_json  # noqa: E402
 
 
 def records(name):
@@ -40,17 +40,32 @@ class TestReadRecords(unittest.TestCase):
                 self.assertIsNone(record['http_status'])
 
 
+class TestReadText(unittest.TestCase):
+    def test_wet(self):
+        rows = list(read_text(str(ROOT / 'whirlwind.warc.wet.gz')))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(tuple(rows[0]), TEXT_FIELDS)
+        self.assertEqual(rows[0]['url'], 'https://an.wikipedia.org/wiki/Escopete')
+        self.assertEqual(rows[0]['language'], 'spa')
+        self.assertGreater(rows[0]['word_count'], 0)
+        self.assertTrue(rows[0]['preview'].startswith('Escopete'))
+        self.assertLessEqual(len(rows[0]['preview']), 200)
+
+    def test_skips_non_conversion(self):
+        self.assertEqual(list(read_text(str(ROOT / 'whirlwind.warc.gz'))), [])
+
+
 class TestWriters(unittest.TestCase):
     def test_csv(self):
         out = io.StringIO()
-        write_csv(records('whirlwind.warc.gz'), out)
+        write_csv(records('whirlwind.warc.gz'), FIELDS, out)
         rows = list(csv.DictReader(io.StringIO(out.getvalue())))
         self.assertEqual(len(rows), 4)
         self.assertEqual(tuple(rows[0]), FIELDS)
 
     def test_json(self):
         out = io.StringIO()
-        write_json(records('whirlwind.warc.gz'), out)
+        write_json(records('whirlwind.warc.gz'), FIELDS, out)
         self.assertEqual(json.loads(out.getvalue()), records('whirlwind.warc.gz'))
 
 

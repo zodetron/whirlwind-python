@@ -15,3 +15,17 @@ Other changes:
 - `Makefile`: added `make export`, which writes the outputs to `exporter/output/`.
 - `.gitignore`: ignores `exporter/output/`.
 - `exporter/README.md`: usage and field reference.
+
+## Page text export
+
+Added a `text` mode to `exporter/export_records.py` (`-m text`), which exports one row per WET `conversion` record: URL, language, word count, and a 200-character preview.
+
+- `iter_archive()` now holds the shared open-and-iterate code, used by both readers.
+- `-m` picks a reader and its CSV fields, so the writers stay format-only.
+- JSON output keeps non-ASCII characters as-is (`ensure_ascii=False`).
+
+Other changes:
+
+- `Makefile`: `make export` also writes `exporter/output/text.csv`.
+- `exporter/README.md`: documents `-m` and the `text` fields.
+- `tests/test_exporter.py`: tests for the `text` mode.
