@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / 'exporter'))
 
-from export_records import FIELDS, TEXT_FIELDS, read_records, read_text, write_csv, write_json  # noqa: E402
+from export_records import FIELDS, LINK_FIELDS, TEXT_FIELDS, LinkParser, read_links, read_records, read_text, write_csv, write_json  # noqa: E402
 
 
 def records(name):
@@ -53,6 +53,24 @@ class TestReadText(unittest.TestCase):
 
     def test_skips_non_conversion(self):
         self.assertEqual(list(read_text(str(ROOT / 'whirlwind.warc.gz'))), [])
+
+
+class TestReadLinks(unittest.TestCase):
+    def test_warc(self):
+        rows = list(read_links(str(ROOT / 'whirlwind.warc.gz')))
+        self.assertEqual(len(rows), 207)
+        self.assertEqual(tuple(rows[0]), LINK_FIELDS)
+        self.assertTrue(all(r['page_url'] == 'https://an.wikipedia.org/wiki/Escopete' for r in rows))
+        self.assertTrue(all(r['link_url'].startswith(('http://', 'https://')) for r in rows))
+
+    def test_skips_non_response(self):
+        self.assertEqual(list(read_links(str(ROOT / 'whirlwind.warc.wet.gz'))), [])
+
+    def test_parser(self):
+        parser = LinkParser()
+        parser.feed('<a href="/a">One <b>two</b></a><a name="x">no href</a><a href="//b.org/">\n three </a>')
+        parser.close()
+        self.assertEqual(parser.links, [('/a', 'One two'), ('//b.org/', 'three')])
 
 
 class TestWriters(unittest.TestCase):

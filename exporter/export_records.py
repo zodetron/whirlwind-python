@@ -1,16 +1,19 @@
-'''Export WARC, WET, or WAT record metadata or WET page text to CSV or JSON.'''
+'''Export WARC, WET, or WAT record metadata, WET page text, or WARC page links to CSV or JSON.'''
 
 import argparse
 import contextlib
 import csv
 import json
 import sys
+from html.parser import HTMLParser
+from urllib.parse import urljoin
 
 import fsspec
 from warcio.archiveiterator import ArchiveIterator
 
 FIELDS = ('warc_type', 'target_uri', 'date', 'content_type', 'content_length', 'http_status')
 TEXT_FIELDS = ('url', 'language', 'word_count', 'preview')
+LINK_FIELDS = ('page_url', 'link_url', 'link_text')
 PREVIEW_CHARS = 200
 
 
@@ -45,6 +48,42 @@ def read_text(path):
         }
 
 
+class LinkParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.links, self.href, self.text = [], None, []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == 'a':
+            self.close_link()
+            self.href = dict(attrs).get('href')
+
+    def handle_data(self, data):
+        if self.href is not None:
+            self.text.append(data)
+
+    def handle_endtag(self, tag):
+        if tag == 'a':
+            self.close_link()
+
+    def close_link(self):
+        if self.href:
+            self.links.append((self.href, ' '.join(''.join(self.text).split())))
+        self.href, self.text = None, []
+
+
+def read_links(path):
+    for record in iter_archive(path):
+        if record.rec_type != 'response' or 'html' not in (record.http_headers.get_header('Content-Type') or ''):
+            continue
+        page_url = record.rec_headers.get_header('WARC-Target-URI')
+        parser = LinkParser()
+        parser.feed(record.content_stream().read().decode('utf-8', errors='replace'))
+        parser.close()
+        for href, text in parser.links:
+            yield {'page_url': page_url, 'link_url': urljoin(page_url, href), 'link_text': text}
+
+
 def write_csv(records, fields, out):
     writer = csv.DictWriter(out, fieldnames=fields)
     writer.writeheader()
@@ -56,14 +95,14 @@ def write_json(records, fields, out):
     out.write('\n')
 
 
-MODES = {'records': (read_records, FIELDS), 'text': (read_text, TEXT_FIELDS)}
+MODES = {'records': (read_records, FIELDS), 'text': (read_text, TEXT_FIELDS), 'links': (read_links, LINK_FIELDS)}
 WRITERS = {'csv': write_csv, 'json': write_json}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('input', help='local path or URL (https://, s3://) of a WARC, WET, or WAT file')
-    parser.add_argument('-m', '--mode', choices=MODES, default='records', help='records: metadata of every record; text: page text from WET')
+    parser.add_argument('-m', '--mode', choices=MODES, default='records', help='records: metadata of every record; text: page text from WET; links: page links from WARC')
     parser.add_argument('-f', '--format', choices=WRITERS, default='csv')
     parser.add_argument('-o', '--output', help='output file (default: stdout)')
     args = parser.parse_args()

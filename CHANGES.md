@@ -29,3 +29,18 @@ Other changes:
 - `Makefile`: `make export` also writes `exporter/output/text.csv`.
 - `exporter/README.md`: documents `-m` and the `text` fields.
 - `tests/test_exporter.py`: tests for the `text` mode.
+
+## Page links export
+
+Added a `links` mode to `exporter/export_records.py` (`-m links`), which exports one row per link found in the HTML of each WARC `response` record: page URL, link URL, and link text.
+
+- Links come from the WARC HTML because the sample WAT file has no link data (its only metadata record describes the crawl request).
+- `LinkParser` uses the standard library's `html.parser`, so no new packages are needed.
+- Relative and protocol-relative links (`/wiki/...`, `//donate...`) are resolved to absolute URLs with `urljoin`.
+- Non-HTML responses are skipped.
+
+Other changes:
+
+- `Makefile`: `make export` also writes `exporter/output/links.csv`.
+- `exporter/README.md`: documents the `links` fields.
+- `tests/test_exporter.py`: tests for the `links` mode and `LinkParser`.
